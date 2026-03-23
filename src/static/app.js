@@ -20,14 +20,54 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const spotsLeft = details.max_participants - details.participants.length;
 
+        const participantsList = details.participants.length > 0
+          ? `<ul class="participants-list">${details.participants.map(p => `<li><span>${p}</span><button class="delete-btn" data-activity="${name}" data-email="${p}" title="Remove participant">✕</button></li>`).join('')}</ul>`
+          : '<p class="no-participants"><em>No participants yet</em></p>';
+
         activityCard.innerHTML = `
           <h4>${name}</h4>
           <p>${details.description}</p>
           <p><strong>Schedule:</strong> ${details.schedule}</p>
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          <div class="participants-section">
+            <strong>Participants:</strong>
+            ${participantsList}
+          </div>
         `;
 
         activitiesList.appendChild(activityCard);
+
+        // Add event listeners to delete buttons
+        const deleteButtons = activityCard.querySelectorAll(".delete-btn");
+        deleteButtons.forEach(button => {
+          button.addEventListener("click", async (event) => {
+            event.preventDefault();
+            const activity = button.dataset.activity;
+            const email = button.dataset.email;
+
+            if (confirm(`Remove ${email} from ${activity}?`)) {
+              try {
+                const response = await fetch(
+                  `/activities/${encodeURIComponent(activity)}/unregister?email=${encodeURIComponent(email)}`,
+                  {
+                    method: "DELETE",
+                  }
+                );
+
+                if (response.ok) {
+                  // Refresh activities list
+                  fetchActivities();
+                } else {
+                  const result = await response.json();
+                  alert(result.detail || "Failed to remove participant");
+                }
+              } catch (error) {
+                alert("Failed to remove participant. Please try again.");
+                console.error("Error removing participant:", error);
+              }
+            }
+          });
+        });
 
         // Add option to select dropdown
         const option = document.createElement("option");
@@ -62,6 +102,8 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+        // Refresh activities list to show the new participant
+        fetchActivities();
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
